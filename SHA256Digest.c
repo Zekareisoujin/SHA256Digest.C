@@ -1,17 +1,11 @@
 #include "SHA256Digest.h"
 #include <string.h>
 
-#define DIGEST_LENGTH 32
-
-static const int H1, H2, H3, H4, H5, H6, H7, H8;
-static const int xOff;
-static const int X[64];
-
 /* SHA-256 Constants
  * (represent the first 32 bits of the fractional parts of the
  * cube roots of the first sixty-four prime numbers)
  */
-static const int K[] = {
+static const WORD k[] = {
     0x428a2f98, 0x71374491, 0xb5c0fbcf, 0xe9b5dba5, 0x3956c25b, 0x59f111f1, 0x923f82a4, 0xab1c5ed5,
     0xd807aa98, 0x12835b01, 0x243185be, 0x550c7dc3, 0x72be5d74, 0x80deb1fe, 0x9bdc06a7, 0xc19bf174,
     0xe49b69c1, 0xefbe4786, 0x0fc19dc6, 0x240ca1cc, 0x2de92c6f, 0x4a7484aa, 0x5cb0a9dc, 0x76f988da,
@@ -22,183 +16,130 @@ static const int K[] = {
     0x748f82ee, 0x78a5636f, 0x84c87814, 0x8cc70208, 0x90befffa, 0xa4506ceb, 0xbef9a3f7, 0xc67178f2
 };
 
-/* SHA-256 functions */
-private int Ch(int x, int y, int z) {
-    return (x & y) ^ ((~x) & z);
+/* SHA-256 Functions
+ * Using macro:
+ */
+#define ROTR(a,b) ((a >> b) | (a << (32-b)))
+#define CH(x,y,z) ((x & y) ^ (~x & z))
+#define MAJ(x,y,z) ((x & y) ^ (x & z) ^ (y & z))
+#define EP0(x) (ROTR(x,2) ^ ROTR(x,13) ^ ROTR(x,22))
+#define EP1(x) (ROTR(x,6) ^ ROTR(x,11) ^ ROTR(x,25))
+#define SIG0(x) (ROTR(x,7) ^ ROTR(x,18) ^ (x >> 3))
+#define SIG1(x) (ROTR(x,17) ^ ROTR(x,19) ^ (x >> 10))
+
+
+static void processChunk(SHA256_CTX *ctx) {
+	WORD a, b, c, d, e, f, g, h, w[64], t1, t2;
+	
+	// copy chunk into the first 16 words of the message schedule array
+	for (int i=0, j=0; i<16; i++, j+=4)
+		w[i] = (ctx->data[j] << 24) | (ctx->data[j+1] << 16) | (ctx->data[j+2] << 8) | ctx->data[j+3];
+	
+    // expand the first 16 words into the remaining 48 words of the message schedule array
+	for (int i=16; i<64; i++) {
+		w[i] = w[i-16] + SIG0(w[i-15]) + w[i-7] + SIG1(w[i-2]);
+	}
+
+	// initialize working variables:
+	a = ctx->hash[0];
+	b = ctx->hash[1];
+	c = ctx->hash[2];
+	d = ctx->hash[3];
+	e = ctx->hash[4];
+	f = ctx->hash[5];
+	g = ctx->hash[6];
+	h = ctx->hash[7];
+	
+	for (int i=0; i<64; i++) {
+		t1 = h + EP1(e) + CH(e, f, g) + k[i] + w[i];
+		t2 = EP0 + MAJ(a, b, c);
+		
+		h = g;
+		g = f;
+		f = e;
+		e = d + t1;
+		d = c;
+		c = b;
+		b = a;
+		a = t1 + t2;
+	}
+
+	ctx->hash[0] += a;
+	ctx->hash[1] += b;
+	ctx->hash[2] += c;
+	ctx->hash[3] += d;
+	ctx->hash[4] += e;
+	ctx->hash[5] += f;
+	ctx->hash[6] += g;
+	ctx->hash[7] += h;
 }
 
-private int Maj(int x, int y, int z) {
-    return (x & y) ^ (x & z) ^ (y & z);
+/* SHA-256 initial hash value
+ * The first 32 bits of the fractional parts of the square roots
+ * of the first eight prime numbers
+ */
+void SHA256Initialize(SHA256_CTX *ctx) {
+	ctx->hash[0] = 0x6a09e667;
+    ctx->hash[1] = 0xbb67ae85;
+    ctx->hash[2] = 0x3c6ef372;
+    ctx->hash[3] = 0xa54ff53a;
+    ctx->hash[4] = 0x510e527f;
+    ctx->hash[5] = 0x9b05688c;
+    ctx->hash[6] = 0x1f83d9ab;
+    ctx->hash[7] = 0x5be0cd19;
+	
+	ctx->dataLength = 0;
+	ctx->totalLength = 0;
 }
 
-private int Sum0(int x){
-    return ((x >>> 2) | (x << 30)) ^ ((x >>> 13) | (x << 19)) ^ ((x >>> 22) | (x << 10));
+void SHA256Update(SHA256_CTX *ctx, const BYTE *in, size_t inLen) {
+	for (int i=0; i<inLen; i++){
+		ctx->data[ctx->dataLength] = in[i];
+		ctx->dataLength++;
+		if (ctx->dataLength == CHUNK_SIZE) {
+			processChunk(ctx);
+			ctx->totalLength += CHUNK_SIZE*8;
+			ctx->dataLength = 0;
+		}
+	}
 }
 
-private int Sum1(int x) {
-    return ((x >>> 6) | (x << 26)) ^ ((x >>> 11) | (x << 21)) ^ ((x >>> 25) | (x << 7));
+void SHA256Finish(SHA256_CTX *ctx, BYTE *out) {
+	int padLength = (ctx->dataLength < 56) ? (64 - ctx->dataLength) : (120 - ctx->dataLength);
+	ctx->totalLength += ctx->dataLength*8;
+	
+	//Create the padding:
+	BYTE[2*CHUNK_SIZE] padding;
+	memset(padding, 0, sizeof padding);
+	padding[0] = 0x80;
+	
+	//Put the total message length in bits into the padding:
+	for (int i=0; i<8; i++)
+		padding[padLength-1-i] = ctx->totalLength >> 8*i;
+		
+	//Process the last chunk(s) with padding
+	SHA256Update(ctx, padding, padLength);
+	
+	//Convert to big endian and put into output
+	for (int i = 0; i < 4; i++) {
+		out[i] 		= (ctx->hash[0] >> (24 - i*8)) & 0x000000ff;
+		out[i + 4] 	= (ctx->hash[1] >> (24 - i*8)) & 0x000000ff;
+		out[i + 8] 	= (ctx->hash[2] >> (24 - i*8)) & 0x000000ff;
+		out[i + 12]	= (ctx->hash[3] >> (24 - i*8)) & 0x000000ff;
+		out[i + 16]	= (ctx->hash[4] >> (24 - i*8)) & 0x000000ff;
+		out[i + 20]	= (ctx->hash[5] >> (24 - i*8)) & 0x000000ff;
+		out[i + 24]	= (ctx->hash[6] >> (24 - i*8)) & 0x000000ff;
+		out[i + 28]	= (ctx->hash[7] >> (24 - i*8)) & 0x000000ff;
+	}
 }
 
-private int Theta0(int x) {
-    return ((x >>> 7) | (x << 25)) ^ ((x >>> 18) | (x << 14)) ^ (x >>> 3);
-}
-
-private int Theta1(int x) {
-    return ((x >>> 17) | (x << 15)) ^ ((x >>> 19) | (x << 13)) ^ (x >>> 10);
-}
-
-
-static int initialize() {
-	/* SHA-256 initial hash value
-     * The first 32 bits of the fractional parts of the square roots
-     * of the first eight prime numbers
-     */
-
-    H1 = 0x6a09e667;
-    H2 = 0xbb67ae85;
-    H3 = 0x3c6ef372;
-    H4 = 0xa54ff53a;
-    H5 = 0x510e527f;
-    H6 = 0x9b05688c;
-    H7 = 0x1f83d9ab;
-    H8 = 0x5be0cd19;
-
-    xOff = 0;
-	memset(X, 0, sizeof X);
+void SHA256DoAll(BYTE *in, size_t inLen, BYTE *out) {
+	SHA256_CTX ctx;
+	SHA256Initialize(&ctx);
+	SHA256Update(&ctx, in, inLen);
+	SHA256Finish(&ctx, out);
 }
 
 int SHA256DigestSize() {
 	return DIGEST_LENGTH;
 }
-
-static void processWord(char* in, int inOff) {
-	int n = in[inOff] << 24;
-	n |= (in[++inOff] & 0xff) << 16;
-	n |= (in[++inOff] & 0xff) << 8;
-	n |= (in[++inOff] & 0xff);
-	X[xOff] = n;
-	
-	if (++xOff == 16)
-		processBlock();
-}
-
-static void processLength(long bitLength) {
-	if (xOff > 14)
-		processBlock();
-		
-	X[14] = (int)((unsigned int)bitLength >> 32);
-	X[15] = (int)(bitLength & 0xffffffff);
-}
-
-void intToBigEndian(int n, char[] bs, int off) {
-	bs[  off] = (char)((unsigned int)n >> 24);
-	bs[++off] = (char)((unsigned int)n >> 16);
-	bs[++off] = (char)((unsigned int)n >> 8);
-	bs[++off] = (char)n;
-}
-
-int doFinal(char[] out, int outOff) {
-	intToBigEndian(H1, out, outOff);
-	intToBigEndian(H2, out, outOff + 4);
-	intToBigEndian(H3, out, outOff + 8);
-	intToBigEndian(H4, out, outOff + 12);
-	intToBigEndian(H5, out, outOff + 16);
-	intToBigEndian(H6, out, outOff + 20);
-	intToBigEndian(H7, out, outOff + 24);
-	intToBigEndian(H8, out, outOff + 28);
-	
-	initialize();
-	return DIGEST_LENGTH;
-}
-
-static void processBlock() {
-    //
-    // expand 16 word block into 64 word blocks.
-    //
-    for (int t = 16; t <= 63; t++)
-    {
-        X[t] = Theta1(X[t - 2]) + X[t - 7] + Theta0(X[t - 15]) + X[t - 16];
-    }
-
-    //
-    // set up working variables.
-    //
-    int     a = H1;
-    int     b = H2;
-    int     c = H3;
-    int     d = H4;
-    int     e = H5;
-    int     f = H6;
-    int     g = H7;
-    int     h = H8;
-
-    int t = 0;     
-    for(int i = 0; i < 8; i ++)
-    {
-        // t = 8 * i
-        h += Sum1(e) + Ch(e, f, g) + K[t] + X[t];
-        d += h;
-        h += Sum0(a) + Maj(a, b, c);
-        ++t;
-
-        // t = 8 * i + 1
-        g += Sum1(d) + Ch(d, e, f) + K[t] + X[t];
-        c += g;
-        g += Sum0(h) + Maj(h, a, b);
-        ++t;
-
-        // t = 8 * i + 2
-        f += Sum1(c) + Ch(c, d, e) + K[t] + X[t];
-        b += f;
-        f += Sum0(g) + Maj(g, h, a);
-        ++t;
-
-        // t = 8 * i + 3
-        e += Sum1(b) + Ch(b, c, d) + K[t] + X[t];
-        a += e;
-        e += Sum0(f) + Maj(f, g, h);
-        ++t;
-
-        // t = 8 * i + 4
-        d += Sum1(a) + Ch(a, b, c) + K[t] + X[t];
-        h += d;
-        d += Sum0(e) + Maj(e, f, g);
-        ++t;
-
-        // t = 8 * i + 5
-        c += Sum1(h) + Ch(h, a, b) + K[t] + X[t];
-        g += c;
-        c += Sum0(d) + Maj(d, e, f);
-        ++t;
-
-        // t = 8 * i + 6
-        b += Sum1(g) + Ch(g, h, a) + K[t] + X[t];
-        f += b;
-        b += Sum0(c) + Maj(c, d, e);
-        ++t;
-
-        // t = 8 * i + 7
-        a += Sum1(f) + Ch(f, g, h) + K[t] + X[t];
-        e += a;
-        a += Sum0(b) + Maj(b, c, d);
-        ++t;
-    }
-
-    H1 += a;
-    H2 += b;
-    H3 += c;
-    H4 += d;
-    H5 += e;
-    H6 += f;
-    H7 += g;
-    H8 += h;
-
-    //
-    // reset the offset and clean out the word buffer.
-    //
-    xOff = 0;
-	memset(X, 0, sizeof X);
-}
-
-
-
