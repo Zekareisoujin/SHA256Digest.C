@@ -1,5 +1,4 @@
 #include "SHA256Digest.h"
-#include <string.h>
 
 /* SHA-256 Constants
  * (represent the first 32 bits of the fractional parts of the
@@ -52,7 +51,7 @@ static void processChunk(SHA256_CTX *ctx) {
 	
 	for (int i=0; i<64; i++) {
 		t1 = h + EP1(e) + CH(e, f, g) + k[i] + w[i];
-		t2 = EP0 + MAJ(a, b, c);
+		t2 = EP0(a) + MAJ(a, b, c);
 		
 		h = g;
 		g = f;
@@ -109,7 +108,7 @@ void SHA256Finish(SHA256_CTX *ctx, BYTE *out) {
 	ctx->totalLength += ctx->dataLength*8;
 	
 	//Create the padding:
-	BYTE[2*CHUNK_SIZE] padding;
+	BYTE padding[2*CHUNK_SIZE];
 	memset(padding, 0, sizeof padding);
 	padding[0] = 0x80;
 	
