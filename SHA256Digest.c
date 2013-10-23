@@ -120,15 +120,11 @@ void SHA256Finalize(SHA256_CTX *ctx, BYTE *out) {
 	SHA256Update(ctx, padding, padLength);
 	
 	//Convert to big endian and put into output
-	for (int i = 0; i < 4; i++) {
-		out[i] 		= (ctx->hash[0] >> (24 - i*8)) & 0x000000ff;
-		out[i + 4] 	= (ctx->hash[1] >> (24 - i*8)) & 0x000000ff;
-		out[i + 8] 	= (ctx->hash[2] >> (24 - i*8)) & 0x000000ff;
-		out[i + 12]	= (ctx->hash[3] >> (24 - i*8)) & 0x000000ff;
-		out[i + 16]	= (ctx->hash[4] >> (24 - i*8)) & 0x000000ff;
-		out[i + 20]	= (ctx->hash[5] >> (24 - i*8)) & 0x000000ff;
-		out[i + 24]	= (ctx->hash[6] >> (24 - i*8)) & 0x000000ff;
-		out[i + 28]	= (ctx->hash[7] >> (24 - i*8)) & 0x000000ff;
+	for (int i=0, j=0; i<8; i++) {
+		out[j++] = (ctx->hash[i] >> 24) & 0xff;
+		out[j++] = (ctx->hash[i] >> 16) & 0xff;
+		out[j++] = (ctx->hash[i] >> 8 ) & 0xff;
+		out[j++] = ctx->hash[i] & 0xff;
 	}
 }
 
