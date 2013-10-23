@@ -132,7 +132,7 @@ void SHA256Finalize(SHA256_CTX *ctx, BYTE *out) {
 	}
 }
 
-void SHA256DoAll(BYTE *in, size_t inLen, BYTE *out) {
+void SHA256ComputeDigest(BYTE *in, size_t inLen, BYTE *out) {
 	SHA256_CTX ctx;
 	SHA256Initialize(&ctx);
 	SHA256Update(&ctx, in, inLen);

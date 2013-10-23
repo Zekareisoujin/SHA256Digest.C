@@ -22,7 +22,7 @@ typedef struct {
 void 	SHA256Initialize(SHA256_CTX *ctx);
 void 	SHA256Update(SHA256_CTX *ctx, const BYTE *in, size_t inLen);
 void 	SHA256Finalize(SHA256_CTX *ctx, BYTE *out); 		//output buffer size must be at least DIGEST_LENGTH
-void 	SHA256DoAll(BYTE *in, size_t inLen, BYTE *out); //packaged function that deal with a single input buffer
+void 	SHA256ComputeDigest(BYTE *in, size_t inLen, BYTE *out); //packaged function that deal with a single input buffer
 int 	SHA256DigestSize();
 
 #endif
