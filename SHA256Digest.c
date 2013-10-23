@@ -103,7 +103,7 @@ void SHA256Update(SHA256_CTX *ctx, const BYTE *in, size_t inLen) {
 	}
 }
 
-void SHA256Finish(SHA256_CTX *ctx, BYTE *out) {
+void SHA256Finalize(SHA256_CTX *ctx, BYTE *out) {
 	int padLength = (ctx->dataLength < 56) ? (64 - ctx->dataLength) : (120 - ctx->dataLength);
 	ctx->totalLength += ctx->dataLength*8;
 	
@@ -136,7 +136,7 @@ void SHA256DoAll(BYTE *in, size_t inLen, BYTE *out) {
 	SHA256_CTX ctx;
 	SHA256Initialize(&ctx);
 	SHA256Update(&ctx, in, inLen);
-	SHA256Finish(&ctx, out);
+	SHA256Finalize(&ctx, out);
 }
 
 int SHA256DigestSize() {
