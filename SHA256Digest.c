@@ -1,8 +1,8 @@
 #include "SHA256Digest.h"
 
 /* SHA-256 Constants
- * (represent the first 32 bits of the fractional parts of the
- * cube roots of the first sixty-four prime numbers)
+ * Represent the first 32 bits of the fractional parts of the
+ * cube roots of the first 64 prime numbers
  */
 static const WORD k[] = {
     0x428a2f98, 0x71374491, 0xb5c0fbcf, 0xe9b5dba5, 0x3956c25b, 0x59f111f1, 0x923f82a4, 0xab1c5ed5,
@@ -14,6 +14,12 @@ static const WORD k[] = {
     0x19a4c116, 0x1e376c08, 0x2748774c, 0x34b0bcb5, 0x391c0cb3, 0x4ed8aa4a, 0x5b9cca4f, 0x682e6ff3,
     0x748f82ee, 0x78a5636f, 0x84c87814, 0x8cc70208, 0x90befffa, 0xa4506ceb, 0xbef9a3f7, 0xc67178f2
 };
+
+/* SHA-256 Initial hash values
+ * The first 32 bits of the fractional parts of the square roots
+ * of the first eight prime numbers
+ */
+static const WORD h[] = { 0x6a09e667, 0xbb67ae85, 0x3c6ef372, 0xa54ff53a, 0x510e527f, 0x9b05688c, 0x1f83d9ab, 0x5be0cd19 };
 
 /* SHA-256 Functions
  * Using macro:
@@ -35,9 +41,8 @@ static void processChunk(SHA256_CTX *ctx) {
 		w[i] = (ctx->data[j] << 24) | (ctx->data[j+1] << 16) | (ctx->data[j+2] << 8) | ctx->data[j+3];
 	
     // expand the first 16 words into the remaining 48 words of the message schedule array
-	for (int i=16; i<64; i++) {
+	for (int i=16; i<64; i++)
 		w[i] = w[i-16] + SIG0(w[i-15]) + w[i-7] + SIG1(w[i-2]);
-	}
 
 	// initialize working variables:
 	a = ctx->hash[0];
@@ -73,20 +78,8 @@ static void processChunk(SHA256_CTX *ctx) {
 	ctx->hash[7] += h;
 }
 
-/* SHA-256 initial hash value
- * The first 32 bits of the fractional parts of the square roots
- * of the first eight prime numbers
- */
 void SHA256Initialize(SHA256_CTX *ctx) {
-	ctx->hash[0] = 0x6a09e667;
-    ctx->hash[1] = 0xbb67ae85;
-    ctx->hash[2] = 0x3c6ef372;
-    ctx->hash[3] = 0xa54ff53a;
-    ctx->hash[4] = 0x510e527f;
-    ctx->hash[5] = 0x9b05688c;
-    ctx->hash[6] = 0x1f83d9ab;
-    ctx->hash[7] = 0x5be0cd19;
-	
+	memcpy(ctx->hash, h, sizeof h);
 	ctx->dataLength = 0;
 	ctx->totalLength = 0;
 }

@@ -1,5 +1,4 @@
 // SHA-256 in C
-
 #ifndef _SHA_256_H_
 #define _SHA_256_H_
 #include <stdio.h>
