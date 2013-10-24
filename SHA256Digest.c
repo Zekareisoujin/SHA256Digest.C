@@ -85,12 +85,12 @@ void SHA256Initialize(SHA256_CTX *ctx) {
 }
 
 void SHA256Update(SHA256_CTX *ctx, const BYTE *in, size_t inLen) {
+	ctx->totalLength += inLen*8;
 	for (int i=0; i<inLen; i++){
 		ctx->data[ctx->dataLength] = in[i];
 		ctx->dataLength++;
 		if (ctx->dataLength == CHUNK_SIZE) {
 			processChunk(ctx);
-			ctx->totalLength += CHUNK_SIZE*8;
 			ctx->dataLength = 0;
 		}
 	}
@@ -98,7 +98,6 @@ void SHA256Update(SHA256_CTX *ctx, const BYTE *in, size_t inLen) {
 
 void SHA256Finalize(SHA256_CTX *ctx, BYTE *out) {
 	int padLength = (ctx->dataLength < 56) ? (64 - ctx->dataLength) : (120 - ctx->dataLength);
-	ctx->totalLength += ctx->dataLength*8;
 	
 	//Create the padding:
 	BYTE padding[2*CHUNK_SIZE];
