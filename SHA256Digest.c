@@ -128,5 +128,5 @@ void SHA256ComputeDigest(BYTE *in, size_t inLen, BYTE *out) {
 }
 
 int SHA256DigestSize() {
-	return DIGEST_LENGTH;
+	return SHA256_DIGEST_LENGTH;
 }
