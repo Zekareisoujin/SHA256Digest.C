@@ -9,7 +9,7 @@
 #define CHUNK_SIZE 64
 
 typedef unsigned char BYTE;
-typedef unsigned long WORD; // only deal with 32-bit word
+typedef unsigned int WORD; // actually not sure if it is able to deal with 64-bit (WORD?), but it works at the moment
 
 typedef struct {
 	BYTE data[64];
